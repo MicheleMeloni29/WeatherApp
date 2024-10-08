@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "AppMeteo",
+    "slug": "AppMeteo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "AppMeteo",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.mebonch1.AppMeteo"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "767644e1-534f-4ff9-b894-c877a8542767"
+      }
+    }
+  }
+}
