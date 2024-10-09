@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ImageBackground, Dimensions, ScrollView, TouchableOpacity } from 'react-native';
 import * as Location from 'expo-location';
-import Ionicons from '@expo/vector-icons/Ionicons'; // Importa Ionicons
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 const screenWidth = Dimensions.get('window').width;
+const screenHeight = Dimensions.get('window').height;
 
 import { RouteProp } from '@react-navigation/native';
 
@@ -20,7 +21,7 @@ export default function HomeScreen({ route }: { route: HomeScreenRouteProp }) {
     const [locationName, setLocationName] = useState('');
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
-    const [locations, setLocations] = useState<WeatherData[]>([]); // State to store all locations
+    const [locations, setLocations] = useState<WeatherData[]>([]);
 
     useEffect(() => {
         fetchWeatherData();
@@ -28,13 +29,9 @@ export default function HomeScreen({ route }: { route: HomeScreenRouteProp }) {
 
     useEffect(() => {
         if (route.params?.location) {
-            addLocation(route.params.location); // Add the new location to the state
+            addLocation(route.params.location);
         }
     }, [route.params?.location]);
-
-    useEffect(() => {
-        console.log('Updated locations:', locations);
-    }, [locations]);
 
     const addLocation = (location: WeatherData) => {
         if (!location.weather || !location.weather[0] || !location.weather[0].main) {
@@ -87,7 +84,12 @@ export default function HomeScreen({ route }: { route: HomeScreenRouteProp }) {
             }
 
             const data = await response.json();
-            console.log('Weather data:', data);
+
+            // Control data are complete before setting them
+            if (!data || !data.weather || !data.weather[0] || !data.main || !data.name) {
+                throw new Error('Incomplete weather data from API');
+            }
+
             setWeatherData(data);
         } catch (error) {
             console.error('Error fetching weather data:', error);
@@ -127,61 +129,79 @@ export default function HomeScreen({ route }: { route: HomeScreenRouteProp }) {
     const backgroundImage = getBackgroundImage(weatherData?.weather[0]?.main || '');
 
     return (
-        <ImageBackground source={backgroundImage} style={styles.background}>
-            {/* Bottone per il reload, posizionato in primo piano */}
+        <View style={styles.container}>
+            {/* Bottone per il reload */}
             <TouchableOpacity style={styles.reloadButton} onPress={fetchWeatherData}>
                 <Ionicons name="reload" size={30} color="#fff" />
             </TouchableOpacity>
 
             {/* ScrollView per mostrare le card delle località */}
-            <ScrollView horizontal contentContainerStyle={styles.scrollView}>
-                <View style={styles.card}>
-                    {errorMsg ? (
-                        <Text>{errorMsg}</Text>
-                    ) : (
-                        weatherData && (
-                            <>
-                                <Text style={styles.cityText}>{weatherData.name || 'Unknown location'}</Text>
-                                <Text style={styles.tempText}>{weatherData.main.temp}°C</Text>
-                                <Text style={styles.weatherText}>{weatherData.weather[0].description}</Text>
-                            </>
-                        )
-                    )}
-                </View>
-
-                {locations.map((loc, index) => (
-                    <View key={index} style={styles.card}>
-                        <Text style={styles.cityText}>{loc.name || 'Unknown location'}</Text>
-                        {loc.weather && loc.weather[0] && (
-                            <>
-                                <Text style={styles.tempText}>{loc.main.temp}°C</Text>
-                                {loc.weather[0] && <Text style={styles.weatherText}>{loc.weather[0].description}</Text>}
-                            </>
+            <ScrollView horizontal
+                contentContainerStyle={styles.scrollView}
+                snapToInterval={screenWidth * 0.9}
+                decelerationRate="fast"
+                showsHorizontalScrollIndicator={false}
+            >
+                {/* Card della località corrente */}
+                <ImageBackground source={backgroundImage} style={styles.cardBackground} imageStyle={styles.cardImage}>
+                    <View style={styles.card}>
+                        {errorMsg ? (
+                            <Text>{errorMsg}</Text>
+                        ) : (
+                            weatherData && (
+                                <>
+                                    <Text style={styles.cityText}>{weatherData.name || 'Unknown location'}</Text>
+                                    <Text style={styles.tempText}>{weatherData.main.temp}°C</Text>
+                                    <Text style={styles.weatherText}>{weatherData.weather[0].description}</Text>
+                                </>
+                            )
                         )}
                     </View>
-                ))}
-
+                </ImageBackground>
+                {/* Card delle località aggiunte */}
+                {locations.map((loc, index) => {
+                    const locationBackgroundImage = getBackgroundImage(loc.weather[0].main);
+                    return (
+                        <ImageBackground
+                            key={index}
+                            source={locationBackgroundImage}
+                            style={styles.cardBackground}
+                            imageStyle={styles.cardImage}
+                        >
+                            <View style={styles.card}>
+                                <Text style={styles.cityText}>{loc.name || 'Unknown location'}</Text>
+                                <Text style={styles.tempText}>{loc.main.temp}°C</Text>
+                                <Text style={styles.weatherText}>{loc.weather[0].description}</Text>
+                            </View>
+                        </ImageBackground>
+                    );
+                })}
             </ScrollView>
-        </ImageBackground>
+
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    background: {
-        flex: 1,
-        justifyContent: 'center',
-    },
     container: {
-
+        flex: 1,
     },
     scrollView: {
         flexDirection: 'row',
-        alignItems: 'center', // Centra verticalmente le card
-        justifyContent: 'center', // Centra orizzontalmente il contenuto
-        paddingVertical: 40, // Distanza dalla parte superiore e inferiore della schermata
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 40,
+    },
+    cardBackground: {
+        width: screenWidth * 0.9, // Occupa la maggior parte dello schermo
+        height: screenHeight * 0.75, // Occupa quasi tutta l'altezza disponibile
+        justifyContent: 'center',
+        marginHorizontal: 10,
+    },
+    cardImage: {
+        borderRadius: 20, // Arrotonda gli angoli dell'immagine di sfondo
     },
     card: {
-        width: screenWidth * 0.8,
         padding: 20,
         backgroundColor: 'rgba(255, 255, 255, 0.8)',
         borderRadius: 10,
@@ -192,7 +212,6 @@ const styles = StyleSheet.create({
         elevation: 5,
         alignItems: 'center',
         alignContent: 'center',
-        marginHorizontal: 10,
     },
     reloadButton: {
         position: 'absolute',
@@ -201,7 +220,7 @@ const styles = StyleSheet.create({
         padding: 10,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         borderRadius: 5,
-        zIndex: 10, // Assicura che il bottone sia in primo piano
+        zIndex: 10,
     },
     cityText: {
         fontSize: 24,

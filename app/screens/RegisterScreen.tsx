@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Text, View, TextInput, Button, StyleSheet, ImageBackground, Image, TouchableOpacity } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
-import { RootStackParamList } from '../navigation/RootStackParamList';  // Update the import path
+import { RootStackParamList } from '../navigation/RootStackParamList';  // Ensure the file exists at this path
 
 // Define the type for the props for RegisterScreen
 type Props = StackScreenProps<RootStackParamList, 'Register'>;

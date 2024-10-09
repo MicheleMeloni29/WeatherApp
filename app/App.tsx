@@ -8,6 +8,10 @@ import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import HomeScreen from './screens/HomeScreen';
 import AddLocation from './screens/AddLocation';
+import { ParamListBase, RouteProp } from '@react-navigation/native';
+
+
+// Define the types for the navigation
 import SettingsScreen from './screens/SettingsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import { TouchableOpacity } from 'react-native';
@@ -47,8 +51,8 @@ function MainTabNavigator({ navigation }: { navigation: any }) {
                     tabBarButton: (props) => (
                         <TouchableOpacity
                             {...props}
-                            style={{ justifyContent: 'center', alignItems: 'center' }}>
-                            <Ionicons name="add-circle" size={48} color={props.accessibilityState?.selected ? 'blue' : 'gray'} />
+                            style={{ justifyContent: 'center', alignItems: 'center', marginLeft: 2 }}>
+                            <Ionicons name="add-circle" size={54} color={props.accessibilityState?.selected ? 'blue' : 'gray'} />
                         </TouchableOpacity>
                     ),
                 }}

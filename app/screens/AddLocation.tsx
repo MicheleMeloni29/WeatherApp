@@ -23,10 +23,10 @@ type Props = {
 
 export default function AddLocationScreen({ navigation }: Props) {
     const [query, setQuery] = useState('');
-    const [filteredCities, setFilteredCities] = useState([]);
+    const [filteredCities, setFilteredCities] = useState<{ name: string; latitude: number; longitude: number; distance?: number }[]>([]);
     const [loading, setLoading] = useState(false);
-    const [selectedLocation, setSelectedLocation] = useState(null);
-    const [region, setRegion] = useState(null);
+    const [selectedLocation, setSelectedLocation] = useState<{ name: string; latitude: number; longitude: number; distance?: number } | null>(null);
+    const [region, setRegion] = useState<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null);
     const mapRef = useRef<MapView>(null);
     const currentLocation = useRef<{ latitude: number; longitude: number } | null>(null);
 
@@ -65,11 +65,15 @@ export default function AddLocationScreen({ navigation }: Props) {
                 `https://api.locationiq.com/v1/autocomplete.php?key=pk.50885526f1e3429619457922e2499771&q=${text}&limit=5&dedupe=1&format=json`
             );
             const data = await response.json();
-            const suggestions = data.map((location) => ({
-                name: location.display_name,
-                latitude: parseFloat(location.lat),
-                longitude: parseFloat(location.lon),
-            }));
+
+            // Filtrare per località valide
+            const suggestions = data
+                .map((location: any) => ({
+                    name: location.display_name,
+                    latitude: parseFloat(location.lat),
+                    longitude: parseFloat(location.lon),
+                }))
+                .filter((location) => location.name && !location.name.includes('undefined')); // Filtro aggiuntivo
 
             if (currentLocation.current) {
                 const sortedSuggestions = sortLocationsByDistance(suggestions);
@@ -84,7 +88,8 @@ export default function AddLocationScreen({ navigation }: Props) {
         }
     };
 
-    const sortLocationsByDistance = (locations) => {
+
+    const sortLocationsByDistance = (locations: { name: string; latitude: number; longitude: number }[]) => {
         return locations
             .map((city) => {
                 if (currentLocation.current) {
@@ -98,11 +103,17 @@ export default function AddLocationScreen({ navigation }: Props) {
                 }
                 return city;
             })
-            .sort((a, b) => a.distance - b.distance);
+            .sort((a, b) => {
+                if ('distance' in a && 'distance' in b) {
+                    return a.distance - b.distance;
+                }
+                return 0;
+            });
     };
 
+    // Calcualte the distance between two points on the Earth's surface
     const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-        const R = 6371; // Raggio della Terra in km
+        const R = 6371; // Earth radius in km
         const dLat = deg2rad(lat2 - lat1);
         const dLon = deg2rad(lon2 - lon1);
         const a =
@@ -110,12 +121,12 @@ export default function AddLocationScreen({ navigation }: Props) {
             Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
             Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; // Distanza in km
+        return R * c; // Disrance in km
     };
 
     const deg2rad = (deg: number) => deg * (Math.PI / 180);
 
-    const handleSelectCity = (city) => {
+    const handleSelectCity = (city: { name: string; latitude: number; longitude: number; distance?: number }) => {
         setQuery(city.name);
         setSelectedLocation(city);
         setFilteredCities([]);
@@ -162,9 +173,12 @@ export default function AddLocationScreen({ navigation }: Props) {
                         setQuery(text);
                         fetchLocationSuggestions(text);
                     }}
-                    placeholder="Search for a city..."
+                    placeholder="Search for a city or a location..."
                     flatListProps={{
                         keyExtractor: (item) => item.name,
+                        ListEmptyComponent: () => (
+                            <Text style={styles.noResultText}>No results found</Text>
+                        ),
                         renderItem: ({ item }) => (
                             <TouchableOpacity onPress={() => handleSelectCity(item)}>
                                 <Text style={styles.itemText}>{item.name} ({item.distance?.toFixed(2)} km)</Text>
@@ -216,19 +230,20 @@ const styles = StyleSheet.create({
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 10,
-        zIndex: 1,
+        marginBottom: 20,
     },
     autocompleteContainer: {
         flex: 1,
     },
+    noResultText: {
+        color: '#999',
+        padding: 10,
+        textAlign: 'center',
+    },
     input: {
         borderColor: '#ddd',
-        borderWidth: 1,
-        padding: 10,
         borderRadius: 5,
         backgroundColor: '#ff0f0f0',
-        flex: 1,
     },
     refreshButton: {
         backgroundColor: '#007BFF',
@@ -236,7 +251,8 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
-        marginLeft: 10, // Spazio tra input e bottone refresh
+        marginLeft: 10, // Space between the input and the button
+        width: 50,
     },
     itemText: {
         padding: 10,
@@ -246,7 +262,8 @@ const styles = StyleSheet.create({
     map: {
         flex: 1,
         width: '100%',
-        marginTop: 10,
+        marginTop: 50,
+        position: 'relative',
     },
     addButton: {
         padding: 15,
