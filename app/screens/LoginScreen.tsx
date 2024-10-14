@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Image, ImageBackground, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-
-
-import { NavigationProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 
 interface LoginScreenProps {
-  navigation: NavigationProp<any>;
   onLogin: () => void;
 }
 
-export default function LoginScreen({ navigation, onLogin }: LoginScreenProps) {
+const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
+  const navigation = useNavigation<any>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -18,10 +16,7 @@ export default function LoginScreen({ navigation, onLogin }: LoginScreenProps) {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = () => {
-    // Avvia il caricamento
     setLoading(true);
-
-    // Simula un tempo di elaborazione
     setTimeout(() => {
       setLoading(false);
       if (email === 'test@example.com' && password === 'password123') {
@@ -35,7 +30,6 @@ export default function LoginScreen({ navigation, onLogin }: LoginScreenProps) {
   const togglePasswordVisibility = () => {
     setIsPasswordVisible(!isPasswordVisible);
   };
-
 
   return (
     <ImageBackground source={require('../../assets/images/clear_sky.jpg')} style={styles.background}>
@@ -55,7 +49,7 @@ export default function LoginScreen({ navigation, onLogin }: LoginScreenProps) {
           />
           <View style={styles.passwordContainer}>
             <TextInput
-              style={styles.inputPaassword}
+              style={styles.inputPassword}
               placeholder="Password"
               placeholderTextColor={'#007BFF'}
               value={password}
@@ -87,7 +81,18 @@ export default function LoginScreen({ navigation, onLogin }: LoginScreenProps) {
       </View>
     </ImageBackground>
   );
-}
+};
+
+// Wrap the component with a higher-order component to provide the necessary props
+const WrappedLoginScreen = (props: any) => {
+  const onLogin = () => {
+    // Your login logic here
+  };
+
+  return <LoginScreen onLogin={onLogin} {...props} />;
+};
+
+export default WrappedLoginScreen;
 
 const styles = StyleSheet.create({
   background: {
@@ -98,7 +103,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Sfondo semi-trasparente per migliore leggibilità
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
   logo: {
     width: 100,
@@ -142,7 +147,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 10,
-
   },
   introText: {
     fontSize: 20,
@@ -150,7 +154,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     color: '#007BFF',
     fontWeight: 'bold',
-
   },
   label: {
     fontSize: 18,
@@ -167,7 +170,7 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
     paddingRight: 8,
   },
-  inputPaassword: {
+  inputPassword: {
     flex: 1,
     height: 40,
   },

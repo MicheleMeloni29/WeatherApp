@@ -10,9 +10,9 @@ import { RouteProp } from '@react-navigation/native';
 
 type HomeScreenRouteProp = RouteProp<{ params: { location: any } }, 'params'>;
 
-export default function HomeScreen({ route }: { route: HomeScreenRouteProp }) {
+const HomeScreen = ({ route }: { route: any }) => {
     interface WeatherData {
-        weather: { main: string; description: string }[];
+        weather: { id: number; main: string; description: string }[];
         main: { temp: number };
         name: string;
     }
@@ -99,22 +99,24 @@ export default function HomeScreen({ route }: { route: HomeScreenRouteProp }) {
         }
     };
 
-    const getBackgroundImage = (conditions: string) => {
-        switch (conditions.toLowerCase()) {
-            case 'partly cloudy':
-                return require('../../assets/images/Partly_cloudy.jpg');
-            case 'clear':
-                return require('../../assets/images/Sunny.jpg');
-            case 'rain':
-                return require('../../assets/images/Rain.jpg');
-            case 'snow':
-                return require('../../assets/images/Snow.jpg');
-            case 'cloudy':
-                return require('../../assets/images/Cloudy.jpg');
-            case 'storm':
-                return require('../../assets/images/Storm.jpg');
-            default:
-                return require('../../assets/images/default_weather.jpg');
+    // This function returns the card background image based on the weather condition codes
+    const getBackgroundImage = (weatherId: number) => {
+        if (weatherId >= 200 && weatherId < 300) { // Thunderstorm group
+            return require('../../assets/images/Storm.jpg');
+        } else if (weatherId >= 300 && weatherId < 400) { // Drizzle group
+            return require('../../assets/images/Rain.jpg');
+        } else if (weatherId >= 500 && weatherId < 600) { // Rain group
+            return require('../../assets/images/Rain.jpg');
+        } else if (weatherId >= 600 && weatherId < 700) { // Snow group
+            return require('../../assets/images/Snow.jpg');
+        } else if (weatherId === 800) { // Clear
+            return require('../../assets/images/Sunny.jpg');
+        } else if (weatherId === 801) { // Partly cloudy
+            return require('../../assets/images/Partly_cloudy.jpg');
+        } else if (weatherId >= 802 && weatherId <= 804) { // Cloudy group
+            return require('../../assets/images/Cloudy.jpg');
+        } else {
+            return require('../../assets/images/default_weather.jpg');
         }
     };
 
@@ -126,7 +128,7 @@ export default function HomeScreen({ route }: { route: HomeScreenRouteProp }) {
         );
     }
 
-    const backgroundImage = getBackgroundImage(weatherData?.weather[0]?.main || '');
+    const backgroundImage = getBackgroundImage(weatherData?.weather[0]?.id || 0);
 
     return (
         <View style={styles.container}>
@@ -160,7 +162,7 @@ export default function HomeScreen({ route }: { route: HomeScreenRouteProp }) {
                 </ImageBackground>
                 {/* Card delle località aggiunte */}
                 {locations.map((loc, index) => {
-                    const locationBackgroundImage = getBackgroundImage(loc.weather[0].main);
+                    const locationBackgroundImage = getBackgroundImage(loc.weather[0].id);
                     return (
                         <ImageBackground
                             key={index}
@@ -182,9 +184,12 @@ export default function HomeScreen({ route }: { route: HomeScreenRouteProp }) {
     );
 }
 
+export default HomeScreen;
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#fff',
     },
     scrollView: {
         flexDirection: 'row',
@@ -215,11 +220,11 @@ const styles = StyleSheet.create({
     },
     reloadButton: {
         position: 'absolute',
-        top: 40,
-        left: 20,
+        top: 32,
+        left: 22,
         padding: 10,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        borderRadius: 5,
+        borderRadius: 10,
         zIndex: 10,
     },
     cityText: {

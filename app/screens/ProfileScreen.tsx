@@ -1,13 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-export default function ProfileScreen() {
+function ProfileScreen() {
     return (
         <View style={styles.container}>
             <Text>Benvenuto nel tuo profilo</Text>
         </View>
     );
 }
+
+export default ProfileScreen;
 
 const styles = StyleSheet.create({
     container: {

@@ -6,53 +6,59 @@ import Autocomplete from 'react-native-autocomplete-input';
 import { Ionicons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
+import { MainTabParamList } from '../../index';
 
-// Definisci i tipi di navigazione e route per questa schermata
-type RootStackParamList = {
-    Home: { location: any };
-    AddLocationScreen: undefined;
-};
-
-type AddLocationScreenNavigationProp = StackNavigationProp<RootStackParamList, 'AddLocationScreen'>;
-type AddLocationScreenRouteProp = RouteProp<RootStackParamList, 'AddLocationScreen'>;
+type AddLocationScreenNavigationProp = StackNavigationProp<MainTabParamList, 'AddLocation'>;
+type AddLocationScreenRouteProp = RouteProp<MainTabParamList, 'AddLocation'>;
 
 type Props = {
     navigation: AddLocationScreenNavigationProp;
     route: AddLocationScreenRouteProp;
 };
 
-export default function AddLocationScreen({ navigation }: Props) {
+type LocationType = {
+    name: string;
+    latitude: number;
+    longitude: number;
+    distance?: number;
+};
+
+const AddLocation: React.FC<Props> = ({ navigation }) => {
     const [query, setQuery] = useState('');
-    const [filteredCities, setFilteredCities] = useState<{ name: string; latitude: number; longitude: number; distance?: number }[]>([]);
+    const [filteredCities, setFilteredCities] = useState<LocationType[]>([]);
     const [loading, setLoading] = useState(false);
-    const [selectedLocation, setSelectedLocation] = useState<{ name: string; latitude: number; longitude: number; distance?: number } | null>(null);
+    const [selectedLocation, setSelectedLocation] = useState<LocationType | null>(null);
     const [region, setRegion] = useState<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null);
     const mapRef = useRef<MapView>(null);
     const currentLocation = useRef<{ latitude: number; longitude: number } | null>(null);
 
+    // Get the current location of the user
     useEffect(() => {
+        const requestLocationPermission = async () => {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                console.error('Permission to access location was denied');
+                return;
+            }
+
+            const location = await Location.getCurrentPositionAsync({});
+            const { latitude, longitude } = location.coords;
+
+            // Imposta la regione della mappa sulla posizione attuale con un zoom maggiore
+            setRegion({
+                latitude,
+                longitude,
+                latitudeDelta: 0.1,  // Aumenta questo valore per uno zoom maggiore
+                longitudeDelta: 0.1, // Aumenta questo valore per uno zoom maggiore
+            });
+            currentLocation.current = { latitude, longitude };
+        };
+
         requestLocationPermission();
     }, []);
 
-    const requestLocationPermission = async () => {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-            console.error('Permission to access location was denied');
-            return;
-        }
 
-        const location = await Location.getCurrentPositionAsync({});
-        const { latitude, longitude } = location.coords;
-
-        setRegion({
-            latitude,
-            longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-        });
-        currentLocation.current = { latitude, longitude };
-    };
-
+    // Fetch location suggestions based on the text input
     const fetchLocationSuggestions = async (text: string) => {
         if (text.length < 1) {
             setFilteredCities([]);
@@ -62,18 +68,21 @@ export default function AddLocationScreen({ navigation }: Props) {
         setLoading(true);
         try {
             const response = await fetch(
-                `https://api.locationiq.com/v1/autocomplete.php?key=pk.50885526f1e3429619457922e2499771&q=${text}&limit=5&dedupe=1&format=json`
+                `https://api.locationiq.com/v1/autocomplete.php?key=pk.50885526f1e3429619457922e2499771&q=${text}&limit=10&format=json`
             );
             const data = await response.json();
 
-            // Filtrare per località valide
             const suggestions = data
                 .map((location: any) => ({
                     name: location.display_name,
                     latitude: parseFloat(location.lat),
                     longitude: parseFloat(location.lon),
+                    type: location.type, // Aggiungiamo il tipo di luogo per il filtraggio
                 }))
-                .filter((location) => location.name && !location.name.includes('undefined')); // Filtro aggiuntivo
+                .filter((location: { name: string, type: string }) => {
+                    // Filtra solo le città
+                    return location.type === 'city' || location.type === 'town' || location.type === 'village';
+                });
 
             if (currentLocation.current) {
                 const sortedSuggestions = sortLocationsByDistance(suggestions);
@@ -89,63 +98,58 @@ export default function AddLocationScreen({ navigation }: Props) {
     };
 
 
-    const sortLocationsByDistance = (locations: { name: string; latitude: number; longitude: number }[]) => {
+    // Sort locations by distance from the current location 
+    const sortLocationsByDistance = (locations: LocationType[]) => {
         return locations
             .map((city) => {
                 if (currentLocation.current) {
-                    const distance = calculateDistance(
-                        currentLocation.current.latitude,
-                        currentLocation.current.longitude,
-                        city.latitude,
-                        city.longitude
-                    );
+                    const distance = calculateDistance(currentLocation.current.latitude, currentLocation.current.longitude, city.latitude, city.longitude);
                     return { ...city, distance };
                 }
                 return city;
             })
-            .sort((a, b) => {
-                if ('distance' in a && 'distance' in b) {
-                    return a.distance - b.distance;
-                }
-                return 0;
-            });
+            .sort((a, b) => (a.distance || 0) - (b.distance || 0));
     };
 
-    // Calcualte the distance between two points on the Earth's surface
+    // Calculate the distance between two coordinates
     const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-        const R = 6371; // Earth radius in km
+        const R = 6371;
         const dLat = deg2rad(lat2 - lat1);
         const dLon = deg2rad(lon2 - lon1);
-        const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) ** 2;
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; // Disrance in km
+        return R * c;
     };
 
     const deg2rad = (deg: number) => deg * (Math.PI / 180);
 
-    const handleSelectCity = (city: { name: string; latitude: number; longitude: number; distance?: number }) => {
+    const handleSelectCity = (city: LocationType) => {
         setQuery(city.name);
         setSelectedLocation(city);
         setFilteredCities([]);
 
-        if (mapRef.current) {
-            mapRef.current.animateToRegion({
-                latitude: city.latitude,
-                longitude: city.longitude,
-                latitudeDelta: 0.0922,
-                longitudeDelta: 0.0421,
-            }, 1000);
-        }
+        mapRef.current?.animateToRegion({
+            latitude: city.latitude,
+            longitude: city.longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+        }, 1000);
     };
 
     const handleAddLocation = () => {
         if (selectedLocation) {
-            navigation.navigate('Home', { location: selectedLocation });
+            const location: LocationType = {
+                name: selectedLocation.name,
+                latitude: selectedLocation.latitude,
+                longitude: selectedLocation.longitude,
+                distance: selectedLocation.distance,
+            };
+            navigation.navigate("Home", { location }); // Assicurati che "Home" sia il nome corretto
+        } else {
+            console.error('No location selected');
         }
     };
+
 
     const handleRefresh = useCallback(async () => {
         const location = await Location.getCurrentPositionAsync({});
@@ -156,10 +160,7 @@ export default function AddLocationScreen({ navigation }: Props) {
             longitudeDelta: 0.0421,
         };
         setRegion(newRegion);
-
-        if (mapRef.current) {
-            mapRef.current.animateToRegion(newRegion, 1000);
-        }
+        mapRef.current?.animateToRegion(newRegion, 1000);
     }, []);
 
     return (
@@ -167,7 +168,7 @@ export default function AddLocationScreen({ navigation }: Props) {
             <View style={styles.searchContainer}>
                 <Autocomplete
                     containerStyle={styles.autocompleteContainer}
-                    data={filteredCities.length === 0 && query ? [] : filteredCities}
+                    data={filteredCities}
                     defaultValue={query}
                     onChangeText={(text) => {
                         setQuery(text);
@@ -176,20 +177,16 @@ export default function AddLocationScreen({ navigation }: Props) {
                     placeholder="Search for a city or a location..."
                     flatListProps={{
                         keyExtractor: (item) => item.name,
-                        ListEmptyComponent: () => (
-                            <Text style={styles.noResultText}>No results found</Text>
-                        ),
+                        ListEmptyComponent: () => <Text style={styles.noResultText}>No results found</Text>,
                         renderItem: ({ item }) => (
                             <TouchableOpacity onPress={() => handleSelectCity(item)}>
                                 <Text style={styles.itemText}>{item.name} ({item.distance?.toFixed(2)} km)</Text>
                             </TouchableOpacity>
                         ),
-                        maxToRenderPerBatch: 3,
                     }}
                     style={styles.input}
                     autoCorrect={false}
                 />
-
                 <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh}>
                     <Ionicons name="refresh" size={24} color="#fff" />
                 </TouchableOpacity>
@@ -200,15 +197,13 @@ export default function AddLocationScreen({ navigation }: Props) {
             <MapView
                 ref={mapRef}
                 style={styles.map}
-                region={region}
+                // Imposta la regione sulla posizione attuale o sulla posizione selezionata
+                region= {region || { latitude: 0, longitude: 0, latitudeDelta: 0.1, longitudeDelta: 0.1 }}
                 onRegionChangeComplete={setRegion}
             >
                 {selectedLocation && (
                     <Marker
-                        coordinate={{
-                            latitude: selectedLocation.latitude,
-                            longitude: selectedLocation.longitude,
-                        }}
+                        coordinate={{ latitude: selectedLocation.latitude, longitude: selectedLocation.longitude }}
                         title={selectedLocation.name}
                     />
                 )}
@@ -219,7 +214,9 @@ export default function AddLocationScreen({ navigation }: Props) {
             </TouchableOpacity>
         </View>
     );
-}
+};
+
+export default AddLocation;
 
 const styles = StyleSheet.create({
     container: {
@@ -230,10 +227,12 @@ const styles = StyleSheet.create({
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 10,
+        zIndex: 2,
     },
     autocompleteContainer: {
         flex: 1,
+        zIndex: 2,
     },
     noResultText: {
         color: '#999',
@@ -241,18 +240,17 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     input: {
-        borderColor: '#ddd',
+        borderColor: '#6EC1E4',
+        borderWidth: 1,
         borderRadius: 5,
-        backgroundColor: '#ff0f0f0',
+        padding: 10,
     },
     refreshButton: {
-        backgroundColor: '#007BFF',
+        backgroundColor: '#6EC1E4',
         padding: 10,
         borderRadius: 10,
         justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: 10, // Space between the input and the button
-        width: 50,
+        marginLeft: 10,
     },
     itemText: {
         padding: 10,
@@ -262,18 +260,25 @@ const styles = StyleSheet.create({
     map: {
         flex: 1,
         width: '100%',
-        marginTop: 50,
-        position: 'relative',
+        marginTop: 80,
+        position: 'absolute',
+        top: 100,
+        bottom: 100,
+        left: 20,
+        borderRadius: 10,
     },
     addButton: {
-        padding: 15,
-        backgroundColor: '#007BFF',
+        backgroundColor: '#6EC1E4',
         borderRadius: 10,
         alignItems: 'center',
-        marginTop: 10,
+        position: 'absolute',
+        bottom: 20,
+        width: '100%',
+        left: 20,
+        padding: 10,
     },
     addButtonText: {
         color: '#fff',
-        fontSize: 18,
+        fontSize: 25,
     },
 });

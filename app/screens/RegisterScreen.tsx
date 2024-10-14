@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { Text, View, TextInput, Button, StyleSheet, ImageBackground, Image, TouchableOpacity } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
-import { RootStackParamList } from '../navigation/RootStackParamList';  // Ensure the file exists at this path
+import { RootStackParamList } from '../../index';
 
-// Define the type for the props for RegisterScreen
 type Props = StackScreenProps<RootStackParamList, 'Register'>;
 
-export default function RegisterScreen({ navigation }: Props) {
+function RegisterScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -39,6 +38,8 @@ export default function RegisterScreen({ navigation }: Props) {
     </ImageBackground>
   );
 }
+
+export default RegisterScreen;
 
 const styles = StyleSheet.create({
   background: {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, Text, Button } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
-import { RootStackParamList } from '../app/App';  // Importa il tipo RootStackParamList
+import { RootStackParamList } from '../index';
 
 type Props = StackScreenProps<RootStackParamList, keyof RootStackParamList>;
 
@@ -11,7 +11,7 @@ export default function NotFoundScreen({ navigation }: Props) {
       <Text style={styles.title}>This screen doesn't exist.</Text>
       <Button
         title="Go to home screen!"
-        onPress={() => navigation.navigate('Home')}
+        onPress={() => navigation.navigate('Home', { location: { name: 'defaultLocation', latitude: 0, longitude: 0, distance: 0 } })}
       />
     </View>
   );
