@@ -29,7 +29,11 @@ const HomeScreen = ({ route }: { route: any }) => {
 
     useEffect(() => {
         if (route.params?.location) {
+            console.log('New location added:', route.params.location);
             addLocation(route.params.location);
+        }
+        else {
+            console.log('No location passed from AddLocation screen');
         }
     }, [route.params?.location]);
 

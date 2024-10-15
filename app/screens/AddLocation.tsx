@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { MainTabParamList } from '../../index';
+import debounce from 'lodash/debounce';
 
 type AddLocationScreenNavigationProp = StackNavigationProp<MainTabParamList, 'AddLocation'>;
 type AddLocationScreenRouteProp = RouteProp<MainTabParamList, 'AddLocation'>;
@@ -31,6 +32,8 @@ const AddLocation: React.FC<Props> = ({ navigation }) => {
     const [region, setRegion] = useState<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null);
     const mapRef = useRef<MapView>(null);
     const currentLocation = useRef<{ latitude: number; longitude: number } | null>(null);
+    const [loadingCurrentPosition, setLoadingCurrentPosition] = useState(false);
+    const defaultRegion = useRef<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null);
 
     // Get the current location of the user
     useEffect(() => {
@@ -44,22 +47,39 @@ const AddLocation: React.FC<Props> = ({ navigation }) => {
             const location = await Location.getCurrentPositionAsync({});
             const { latitude, longitude } = location.coords;
 
-            // Imposta la regione della mappa sulla posizione attuale con un zoom maggiore
-            setRegion({
+            // Set the map region to the current location with a greater zoom
+            const initialRegion = {
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+                latitudeDelta: 20,  // Greater zoom
+                longitudeDelta: 20, // Greater zoom
+            };
+
+            setRegion(initialRegion);
+            currentLocation.current = { latitude, longitude };
+
+            // Store the default region (used for dezoom)
+            defaultRegion.current = {
                 latitude,
                 longitude,
-                latitudeDelta: 0.1,  // Aumenta questo valore per uno zoom maggiore
-                longitudeDelta: 0.1, // Aumenta questo valore per uno zoom maggiore
-            });
-            currentLocation.current = { latitude, longitude };
+                latitudeDelta: 20,  // Lesser zoom
+                longitudeDelta: 20, // Lesser zoom
+            };
         };
-
         requestLocationPermission();
     }, []);
 
+    // Debounce function to limit API calls
+    const debounce = (func: Function, delay: number) => {
+        let timer: NodeJS.Timeout;
+        return (...args: any[]) => {
+            clearTimeout(timer);
+            timer = setTimeout(() => func.apply(this, args), delay);
+        }
+    }
 
     // Fetch location suggestions based on the text input
-    const fetchLocationSuggestions = async (text: string) => {
+    const fetchLocationSuggestions = useCallback(debounce(async (text: string) => {
         if (text.length < 1) {
             setFilteredCities([]);
             return;
@@ -70,33 +90,44 @@ const AddLocation: React.FC<Props> = ({ navigation }) => {
             const response = await fetch(
                 `https://api.locationiq.com/v1/autocomplete.php?key=pk.50885526f1e3429619457922e2499771&q=${text}&limit=10&format=json`
             );
+
             const data = await response.json();
 
-            const suggestions = data
-                .map((location: any) => ({
-                    name: location.display_name,
-                    latitude: parseFloat(location.lat),
-                    longitude: parseFloat(location.lon),
-                    type: location.type, // Aggiungiamo il tipo di luogo per il filtraggio
-                }))
-                .filter((location: { name: string, type: string }) => {
-                    // Filtra solo le città
-                    return location.type === 'city' || location.type === 'town' || location.type === 'village';
-                });
+            if (Array.isArray(data)) {
+                const suggestions = data
+                    .map((location: any) => ({
+                        name: location.display_name,
+                        latitude: parseFloat(location.lat),
+                        longitude: parseFloat(location.lon),
+                        type: location.type,
+                    }))
+                    .filter((location: { name: string, type: string }) => {
+                        return location.type === 'city' || location.type === 'town' || location.type === 'village';
+                    });
 
-            if (currentLocation.current) {
-                const sortedSuggestions = sortLocationsByDistance(suggestions);
-                setFilteredCities(sortedSuggestions);
+                if (currentLocation.current) {
+                    const sortedSuggestions = sortLocationsByDistance(suggestions);
+                    setFilteredCities(sortedSuggestions);
+                } else {
+                    setFilteredCities(suggestions);
+                }
             } else {
-                setFilteredCities(suggestions);
+                console.error('Unexpected data format:', data);
+                setFilteredCities([]);
             }
         } catch (error) {
-            console.error('Error fetching location suggestions:', error);
+            if ((error as Error).message.includes("Rate Limited")) {
+                console.error('Rate limit exceeded, please wait a moment before trying again.');
+                alert('Rate limit exceeded, please wait a moment before trying again.');
+            } else {
+                console.error('Error fetching location suggestions:', error);
+            }
         } finally {
             setLoading(false);
         }
-    };
+    }, 1000), []); // 1000 ms di debounce
 
+    const fetchLocationSuggestionsDebounced = useCallback(debounce(fetchLocationSuggestions, 500), []);
 
     // Sort locations by distance from the current location 
     const sortLocationsByDistance = (locations: LocationType[]) => {
@@ -131,8 +162,12 @@ const AddLocation: React.FC<Props> = ({ navigation }) => {
         mapRef.current?.animateToRegion({
             latitude: city.latitude,
             longitude: city.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
+            latitudeDelta: 0.5,
+            longitudeDelta: 0.5,
+        }, 1000);
+
+        setTimeout(() => {
+            setLoadingCurrentPosition(false);
         }, 1000);
     };
 
@@ -144,23 +179,26 @@ const AddLocation: React.FC<Props> = ({ navigation }) => {
                 longitude: selectedLocation.longitude,
                 distance: selectedLocation.distance,
             };
-            navigation.navigate("Home", { location }); // Assicurati che "Home" sia il nome corretto
+            console.log('Selected location:', selectedLocation);
+            navigation.navigate("Home", { location: selectedLocation });
         } else {
-            console.error('No location selected');
+            console.warn('No location selected');
         }
     };
 
+    // Function to refresh the current location
+    const handleRefresh = useCallback(() => {
+        if (defaultRegion.current) {
+            setLoadingCurrentPosition(true);
 
-    const handleRefresh = useCallback(async () => {
-        const location = await Location.getCurrentPositionAsync({});
-        const newRegion = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-        };
-        setRegion(newRegion);
-        mapRef.current?.animateToRegion(newRegion, 1000);
+            // Perform the dezoom to the default region with animation
+            mapRef.current?.animateToRegion(defaultRegion.current, 1000);
+
+            // Hide the loading after a short timeout to match the animation
+            setTimeout(() => {
+                setLoadingCurrentPosition(false);
+            }, 1200);  // Wait a bit to sync the loader with the animation
+        }
     }, []);
 
     return (
@@ -175,6 +213,7 @@ const AddLocation: React.FC<Props> = ({ navigation }) => {
                         fetchLocationSuggestions(text);
                     }}
                     placeholder="Search for a city or a location..."
+                    placeholderTextColor="rgba(0, 0, 0, 0.3)"
                     flatListProps={{
                         keyExtractor: (item) => item.name,
                         ListEmptyComponent: () => <Text style={styles.noResultText}>No results found</Text>,
@@ -197,8 +236,8 @@ const AddLocation: React.FC<Props> = ({ navigation }) => {
             <MapView
                 ref={mapRef}
                 style={styles.map}
-                // Imposta la regione sulla posizione attuale o sulla posizione selezionata
-                region= {region || { latitude: 0, longitude: 0, latitudeDelta: 0.1, longitudeDelta: 0.1 }}
+                // Set the region to the current location or the selected location
+                region={region || { latitude: 0, longitude: 0, latitudeDelta: 0.1, longitudeDelta: 0.1 }}
                 onRegionChangeComplete={setRegion}
             >
                 {selectedLocation && (
@@ -232,7 +271,7 @@ const styles = StyleSheet.create({
     },
     autocompleteContainer: {
         flex: 1,
-        zIndex: 2,
+        zIndex: 10,
     },
     noResultText: {
         color: '#999',
