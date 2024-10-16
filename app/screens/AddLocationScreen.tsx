@@ -173,18 +173,13 @@ const AddLocation: React.FC<Props> = ({ navigation }) => {
 
     const handleAddLocation = () => {
         if (selectedLocation) {
-            const location: LocationType = {
-                name: selectedLocation.name,
-                latitude: selectedLocation.latitude,
-                longitude: selectedLocation.longitude,
-                distance: selectedLocation.distance,
-            };
-            console.log('Selected location:', selectedLocation);
-            navigation.navigate("Home", { location: selectedLocation });
+            console.log("Selected location:", selectedLocation); // Debug: verify the selected location is correct
+            navigation.navigate("Home", { location: selectedLocation });    // Pass the selected location to the Home screen
         } else {
             console.warn('No location selected');
         }
     };
+
 
     // Function to refresh the current location
     const handleRefresh = useCallback(() => {
@@ -271,6 +266,7 @@ const styles = StyleSheet.create({
     },
     autocompleteContainer: {
         flex: 1,
+        borderWidth: 0,
         zIndex: 10,
     },
     noResultText: {
@@ -279,8 +275,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     input: {
-        borderColor: '#6EC1E4',
-        borderWidth: 1,
+        borderWidth: 0,
         borderRadius: 5,
         padding: 10,
     },
@@ -301,7 +296,7 @@ const styles = StyleSheet.create({
         width: '100%',
         marginTop: 80,
         position: 'absolute',
-        top: 100,
+        top: 10,
         bottom: 100,
         left: 20,
         borderRadius: 10,

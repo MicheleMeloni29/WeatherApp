@@ -10,10 +10,12 @@ import { RouteProp } from '@react-navigation/native';
 
 type HomeScreenRouteProp = RouteProp<{ params: { location: any } }, 'params'>;
 
-const HomeScreen = ({ route }: { route: any }) => {
+const HomeScreen = ({ route, navigation }: { route: any; navigation: any }) => {
     interface WeatherData {
         weather: { id: number; main: string; description: string }[];
         main: { temp: number };
+        wind_speed: number; // Velocità del vento
+        humidity: number;   // Umidità
         name: string;
     }
 
@@ -25,25 +27,65 @@ const HomeScreen = ({ route }: { route: any }) => {
 
     useEffect(() => {
         fetchWeatherData();
-    }, []);
 
-    useEffect(() => {
         if (route.params?.location) {
             console.log('New location added:', route.params.location);
             addLocation(route.params.location);
-        }
-        else {
+        } else {
             console.log('No location passed from AddLocation screen');
         }
     }, [route.params?.location]);
 
-    const addLocation = (location: WeatherData) => {
-        if (!location.weather || !location.weather[0] || !location.weather[0].main) {
-            console.warn('Incomplete weather data for location:', location);
+
+    // Funzione per aggiungere una nuova località
+    const addLocation = async (location: any) => {
+        try {
+            const response = await fetch(
+                `https://api.openweathermap.org/data/2.5/weather?lat=${location.latitude}&lon=${location.longitude}&appid=283aba4d06e9df5063cd4b9fc5f90c27&units=metric`
+            );
+
+            if (!response.ok) {
+                const errorResponse = await response.json();
+                console.error('API Response Error:', errorResponse);
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorResponse.message}`);
+            }
+
+            const weatherData = await response.json();
+
+            // Verifica che i dati abbiano la struttura prevista
+            if (!weatherData || !weatherData.weather || !Array.isArray(weatherData.weather) || !weatherData.weather[0] || !weatherData.main) {
+                console.warn('Incomplete or malformed weather data for location:', location);
+                return;
+            }
+
+            // Aggiungi la località solo se non è già presente nell'elenco
+            const isLocationAlreadyAdded = locations.some((loc) => loc.name === weatherData.name);
+            if (isLocationAlreadyAdded) {
+                console.warn('Location already added:', weatherData.name);
+                return;
+            }
+
+            // Aggiorna lo stato con i dati della nuova località
+            setLocations((prevLocations) => [
+                ...prevLocations,
+                {
+                    ...weatherData,
+                    wind_speed: weatherData.wind ? weatherData.wind.speed : 0, // Verifica che `wind` esista
+                    humidity: weatherData.main.humidity || 0,
+                },
+            ]);
+
+            // Resetta il parametro "location" per evitare duplicati
+            navigation.setParams({ location: null });
+        } catch (error) {
+            console.error('Error fetching weather data for location:', error);
         }
-        setLocations((prevLocations) => [...prevLocations, location]);
     };
 
+
+
+
+    // Funzione per ottenere i dati meteo della posizione corrente
     const fetchWeatherData = async () => {
         setLoading(true);
         try {
@@ -55,26 +97,19 @@ const HomeScreen = ({ route }: { route: any }) => {
             }
 
             let location = await Location.getCurrentPositionAsync({});
-            let reverseGeocode = await Location.reverseGeocodeAsync({
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude
-            });
-
-            if (reverseGeocode.length > 0) {
-                let geocodeData = reverseGeocode[0];
-                setLocationName(`${geocodeData.city}, ${geocodeData.country}`);
-            } else {
-                setLocationName('Unknown location');
+            if (!location || !location.coords) {
+                throw new Error('Location data is undefined');
             }
 
-            await fetchWeather(location.coords.latitude, location.coords.longitude);
+            fetchWeather(location.coords.latitude, location.coords.longitude);
         } catch (error) {
             console.error('Error while getting location:', error);
-            setErrorMsg('Error while getting location');
+            setErrorMsg(`Error while getting location: ${(error as Error).message}`);
             setLoading(false);
         }
     };
 
+    // Funzione per ottenere i dati meteo in base alla latitudine e longitudine
     const fetchWeather = async (latitude: number, longitude: number) => {
         try {
             const response = await fetch(
@@ -89,12 +124,18 @@ const HomeScreen = ({ route }: { route: any }) => {
 
             const data = await response.json();
 
-            // Control data are complete before setting them
-            if (!data || !data.weather || !data.weather[0] || !data.main || !data.name) {
+            // Verifica che i dati siano completi prima di impostarli
+            if (!data || !data.weather || !Array.isArray(data.weather) || !data.weather[0] || !data.main) {
                 throw new Error('Incomplete weather data from API');
             }
 
-            setWeatherData(data);
+            setWeatherData({
+                weather: data.weather,
+                main: { temp: data.main.temp },
+                wind_speed: data.wind ? data.wind.speed : 0, // Verifica che `wind` esista
+                humidity: data.main.humidity || 0,
+                name: data.name,
+            });
         } catch (error) {
             console.error('Error fetching weather data:', error);
             setErrorMsg(`Error fetching weather data: ${(error as Error).message}`);
@@ -103,21 +144,27 @@ const HomeScreen = ({ route }: { route: any }) => {
         }
     };
 
-    // This function returns the card background image based on the weather condition codes
+
+
+    const removeLocation = (index: number) => {
+        setLocations((prevLocations) => prevLocations.filter((_, i) => i !== index));
+    };
+
+    // Funzione per ottenere l'immagine di sfondo della card in base all'id delle condizioni meteo
     const getBackgroundImage = (weatherId: number) => {
-        if (weatherId >= 200 && weatherId < 300) { // Thunderstorm group
+        if (weatherId >= 200 && weatherId < 300) {
             return require('../../assets/images/Storm.jpg');
-        } else if (weatherId >= 300 && weatherId < 400) { // Drizzle group
+        } else if (weatherId >= 300 && weatherId < 400) {
             return require('../../assets/images/Rain.jpg');
-        } else if (weatherId >= 500 && weatherId < 600) { // Rain group
+        } else if (weatherId >= 500 && weatherId < 600) {
             return require('../../assets/images/Rain.jpg');
-        } else if (weatherId >= 600 && weatherId < 700) { // Snow group
+        } else if (weatherId >= 600 && weatherId < 700) {
             return require('../../assets/images/Snow.jpg');
-        } else if (weatherId === 800) { // Clear
+        } else if (weatherId === 800) {
             return require('../../assets/images/Sunny.jpg');
-        } else if (weatherId === 801) { // Partly cloudy
+        } else if (weatherId === 801) {
             return require('../../assets/images/Partly_cloudy.jpg');
-        } else if (weatherId >= 802 && weatherId <= 804) { // Cloudy group
+        } else if (weatherId >= 802 && weatherId <= 804) {
             return require('../../assets/images/Cloudy.jpg');
         } else {
             return require('../../assets/images/default_weather.jpg');
@@ -142,28 +189,37 @@ const HomeScreen = ({ route }: { route: any }) => {
             </TouchableOpacity>
 
             {/* ScrollView per mostrare le card delle località */}
-            <ScrollView horizontal
+            <ScrollView
+                horizontal
                 contentContainerStyle={styles.scrollView}
-                snapToInterval={screenWidth * 0.9}
                 decelerationRate="fast"
                 showsHorizontalScrollIndicator={false}
             >
                 {/* Card della località corrente */}
-                <ImageBackground source={backgroundImage} style={styles.cardBackground} imageStyle={styles.cardImage}>
+                <ImageBackground
+                    source={backgroundImage}
+                    style={styles.cardBackground}
+                    imageStyle={styles.cardImage}
+                >
                     <View style={styles.card}>
                         {errorMsg ? (
                             <Text>{errorMsg}</Text>
+                        ) : weatherData && weatherData.weather && weatherData.main ? (
+                            <>
+                                <Text style={styles.cityText}>{weatherData.name || 'Unknown location'}</Text>
+                                <Text style={styles.weatherText}>{weatherData.weather[0].description}</Text>
+                                <Text style={styles.tempText}>{Math.round(weatherData.main.temp)}°C</Text>
+                                <View style={styles.windHumidityContainer}>
+                                    <Text style={styles.windText}>Wind: {Math.round(weatherData.wind_speed)} m/s</Text>
+                                    <Text style={styles.humidityText}>Humidity: {weatherData.humidity}%</Text>
+                                </View>
+                            </>
                         ) : (
-                            weatherData && (
-                                <>
-                                    <Text style={styles.cityText}>{weatherData.name || 'Unknown location'}</Text>
-                                    <Text style={styles.tempText}>{weatherData.main.temp}°C</Text>
-                                    <Text style={styles.weatherText}>{weatherData.weather[0].description}</Text>
-                                </>
-                            )
+                            <Text>No weather data available</Text>
                         )}
                     </View>
                 </ImageBackground>
+
                 {/* Card delle località aggiunte */}
                 {locations.map((loc, index) => {
                     const locationBackgroundImage = getBackgroundImage(loc.weather[0].id);
@@ -176,17 +232,24 @@ const HomeScreen = ({ route }: { route: any }) => {
                         >
                             <View style={styles.card}>
                                 <Text style={styles.cityText}>{loc.name || 'Unknown location'}</Text>
-                                <Text style={styles.tempText}>{loc.main.temp}°C</Text>
                                 <Text style={styles.weatherText}>{loc.weather[0].description}</Text>
+                                <Text style={styles.tempText}>{Math.round(loc.main.temp)}°C</Text>
+                                <View style={styles.windHumidityContainer}>
+                                    <Text style={styles.windText}>Wind: {Math.round(loc.wind_speed)} m/s</Text>
+                                    <Text style={styles.humidityText}>Humidity: {loc.humidity}%</Text>
+                                </View>
+                                <TouchableOpacity style={styles.deleteButton} onPress={() => removeLocation(index)}>
+                                    <Ionicons name="trash" size={24} color="red" />
+                                </TouchableOpacity>
                             </View>
                         </ImageBackground>
                     );
                 })}
-            </ScrollView>
 
+            </ScrollView>
         </View>
     );
-}
+};
 
 export default HomeScreen;
 
@@ -202,17 +265,15 @@ const styles = StyleSheet.create({
         paddingVertical: 40,
     },
     cardBackground: {
-        width: screenWidth * 0.9, // Occupa la maggior parte dello schermo
-        height: screenHeight * 0.75, // Occupa quasi tutta l'altezza disponibile
+        width: screenWidth * 1, // Occupa la maggior parte dello schermo
+        height: screenHeight * 0.8, // Occupa quasi tutta l'altezza disponibile
         justifyContent: 'center',
-        marginHorizontal: 10,
     },
     cardImage: {
-        borderRadius: 20, // Arrotonda gli angoli dell'immagine di sfondo
     },
     card: {
         padding: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        backgroundColor: 'rgba(255, 255, 255, 0.5)',
         borderRadius: 10,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
@@ -234,7 +295,7 @@ const styles = StyleSheet.create({
     cityText: {
         fontSize: 24,
         fontWeight: 'bold',
-        marginBottom: 10,
+        //marginBottom: 10,
     },
     tempText: {
         fontSize: 30,
@@ -242,7 +303,26 @@ const styles = StyleSheet.create({
         color: '#ff8c00',
     },
     weatherText: {
+        fontSize: 20,
+        color: '#333',
+    },
+    deleteButton: {
+        marginTop: 20,
+    },
+    windHumidityContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        marginTop: 10,
+    },
+    windText: {
         fontSize: 18,
         color: '#333',
+        marginTop: 10,
+    },
+    humidityText: {
+        fontSize: 18,
+        color: '#333',
+        marginTop: 10,
     },
 });

@@ -10,7 +10,7 @@ import { TouchableOpacity } from 'react-native';
 
 // Importa le tue schermate
 import HomeScreen from './app/screens/HomeScreen';
-import AddLocation from './app/screens/AddLocation';
+import AddLocation from './app/screens/AddLocationScreen';
 import SettingsScreen from './app/screens/SettingsScreen';
 import ProfileScreen from './app/screens/ProfileScreen';
 import WrappedLoginScreen from './app/screens/LoginScreen';
