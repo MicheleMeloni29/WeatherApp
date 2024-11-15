@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Image, ImageBackground, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Image, ImageBackground, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../../constants/firebaseConfig';
+
 
 interface LoginScreenProps {
   onLogin: () => void;
@@ -9,22 +12,32 @@ interface LoginScreenProps {
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const navigation = useNavigation<any>();
-  const [email, setEmail] = useState('');
+  const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      if (email === 'test@example.com' && password === 'password123') {
-        navigation.navigate('Main');
+  const handleLogin = async () => {
+    try {
+
+      const userCredential = await signInWithEmailAndPassword(auth, `${userName}@example.com`, password);
+      const user = userCredential.user;
+      console.log('Login successful:', user.uid);
+      // Naviga alla schermata principale o esegui altre azioni
+      navigation.navigate('Main');
+    } catch (error: any) {
+      console.error('Login error:', error);
+      if (error.code === 'auth/user-not-found') {
+        Alert.alert('Errore di login', 'Utente non trovato. Verifica username e password.');
+      } else if (error.code === 'auth/wrong-password') {
+        Alert.alert('Errore di login', 'Password errata.');
+      } else if (error.code === 'auth/invalid-email') {
+        Alert.alert('Errore di login', 'Formato email non valido.');
       } else {
-        setErrorMessage('Credenziali non valide');
+        Alert.alert('Errore di login', 'Si è verificato un errore. Riprova.');
       }
-    }, 1500);
+    }
   };
 
   const togglePasswordVisibility = () => {
@@ -40,10 +53,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
-            placeholder="Email"
-            placeholderTextColor={'#007BFF'}
-            value={email}
-            onChangeText={setEmail}
+            placeholder="Username"
+            placeholderTextColor={'#6EC1E4'}
+            value={userName}
+            onChangeText={setUserName}
             keyboardType="email-address"
             autoCapitalize="none"
           />
@@ -51,7 +64,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
             <TextInput
               style={styles.inputPassword}
               placeholder="Password"
-              placeholderTextColor={'#007BFF'}
+              placeholderTextColor={'#6EC1E4'}
               value={password}
               secureTextEntry={!isPasswordVisible}
               onChangeText={setPassword}
@@ -60,13 +73,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
               <Ionicons
                 name={isPasswordVisible ? 'eye-off' : 'eye'}
                 size={24}
-                color="#007BFF"
+                color="#6EC1E4"
               />
             </TouchableOpacity>
           </View>
           {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
           {loading ? (
-            <ActivityIndicator size="large" color="#0000ff" />
+            <ActivityIndicator size="large" color="#6EC1E4" />
           ) : (
             <>
               <TouchableOpacity style={styles.button} onPress={handleLogin}>
@@ -86,7 +99,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 // Wrap the component with a higher-order component to provide the necessary props
 const WrappedLoginScreen = (props: any) => {
   const onLogin = () => {
-    // Your login logic here
+    // Callback per quando l'utente ha effettuato correttamente il login
   };
 
   return <LoginScreen onLogin={onLogin} {...props} />;
@@ -116,21 +129,21 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 40,
-    borderColor: '#007BFF',
+    borderColor: '#6EC1E4',
     borderWidth: 1,
     marginBottom: 12,
     paddingLeft: 8,
     borderRadius: 5,
   },
   button: {
-    backgroundColor: '#007BFF',
+    backgroundColor: '#6EC1E4',
     padding: 10,
     borderRadius: 5,
     alignItems: 'center',
     marginVertical: 5,
   },
   registerButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: '#9999',
   },
   buttonText: {
     color: '#fff',
@@ -142,7 +155,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   welcomeText: {
-    color: '#007BFF',
+    color: '#6EC1E4',
     fontSize: 30,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -152,18 +165,18 @@ const styles = StyleSheet.create({
     fontSize: 20,
     textAlign: 'center',
     marginBottom: 20,
-    color: '#007BFF',
+    color: '#6EC1E4',
     fontWeight: 'bold',
   },
   label: {
     fontSize: 18,
     marginBottom: 5,
-    color: '#007BFF',
+    color: '#6EC1E4',
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderColor: '#007BFF',
+    borderColor: '#6EC1E4',
     borderWidth: 1,
     borderRadius: 5,
     marginBottom: 12,
