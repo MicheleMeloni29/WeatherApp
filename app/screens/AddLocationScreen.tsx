@@ -305,8 +305,6 @@ const AddLocation: React.FC<Props> = ({ navigation }) => {
 
 
 
-
-
     // Function to refresh the current location
     const handleRefresh = useCallback(async () => {
         setQuery('');               // Cancella il contenuto della barra di ricerca

@@ -1,57 +1,3 @@
-/**
- * HomeScreen component displays weather information for the current location and saved locations.
- * 
- * @param {Object} props - The component props.
- * @param {Object} props.route - The route object containing navigation parameters.
- * @param {Object} props.navigation - The navigation object for navigating between screens.
- * 
- * @typedef {Object} WeatherData - The structure of the weather data object from the `/forecast` endpoint.
- * @property {Array} list - List of weather data entries.
- * @property {number} list.dt - Timestamp of the weather data entry.
- * @property {Object} list.main - Main weather data.
- * @property {number} list.main.temp - Temperature.
- * @property {number} list.main.humidity - Humidity.
- * @property {Array} list.weather - List of weather conditions.
- * @property {number} list.weather.id - Weather condition ID.
- * @property {string} list.weather.description - Weather condition description.
- * @property {string} list.weather.icon - Weather condition icon.
- * @property {Object} list.wind - Wind data.
- * @property {number} list.wind.speed - Wind speed.
- * @property {Object} city - City data.
- * @property {string} city.name - City name.
- * 
- * @returns {JSX.Element} The rendered component.
- * 
- * @function fetchCurrentLocationWeather - Fetches weather data for the current location.
- * @async
- * 
- * @function fetchUserLocations - Fetches saved locations from the database.
- * @async
- * 
- * @function addLocation - Adds a new location to the list.
- * @async
- * @param {Object} location - The location object containing latitude and longitude.
- * 
- * @function fetchWeatherData - Fetches weather data for the current location.
- * @async
- * 
- * @function fetchWeather - Fetches weather data based on latitude and longitude.
- * @async
- * @param {number} latitude - The latitude of the location.
- * @param {number} longitude - The longitude of the location.
- * 
- * @function removeLocation - Removes a location from the list.
- * @param {number} index - The index of the location to remove.
- * 
- * @function getBackgroundImage - Gets the background image based on the weather condition ID.
- * @param {number} weatherId - The weather condition ID.
- * @returns {Object} The background image.
- * 
- * @function getTemperatureColor - Gets the color based on the temperature value.
- * @param {number} temp - The temperature value.
- * @returns {string} The color corresponding to the temperature.
- */
-
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ImageBackground, Dimensions, ScrollView, TouchableOpacity, Image } from 'react-native';
 import * as Location from 'expo-location';
@@ -59,7 +5,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../constants/firebaseConfig';
 import { getAuth } from 'firebase/auth';
-import { useRoute } from '@react-navigation/native';
 
 
 const screenWidth = Dimensions.get('window').width;
@@ -203,68 +148,69 @@ const HomeScreen = ({ route, navigation }: { route: any; navigation: any }) => {
             console.error('Error fetching current location weather:', error);
             setErrorMsg(`Error: ${(error as Error).message}`);
         }
+    }
 
 
-        // Function to remove a location from the list
-        const removeLocation = (index: number) => {
-            setLocations((prevLocations) => prevLocations.filter((_, i) => i !== index));
-        };
+    // Function to remove a location from the list
+    const removeLocation = (index: number) => {
+        setLocations((prevLocations) => prevLocations.filter((_, i) => i !== index));
+    };
 
 
-        // Function to obtain the background image of the card based on the weather conditions ID
-        const getBackgroundImage = (weatherId: number) => {
-            switch (true) {
-                case (weatherId >= 200 && weatherId < 300):
-                    return require('../../assets/images/Storm.jpg');
-                case (weatherId >= 300 && weatherId < 400):
-                    return require('../../assets/images/Rain.jpg');
-                case (weatherId >= 500 && weatherId < 600):
-                    return require('../../assets/images/Rain.jpg');
-                case (weatherId >= 600 && weatherId < 700):
-                    return require('../../assets/images/Snow.jpg');
-                case (weatherId === 800):
-                    return require('../../assets/images/Sunny.jpg');
-                case (weatherId === 801):
-                    return require('../../assets/images/Partly_cloudy.jpg');
-                case (weatherId >= 802 && weatherId <= 804):
-                    return require('../../assets/images/Cloudy.jpg');
-                default:
-                    return require('../../assets/images/default_weather.jpg');
-            }
-        };
-
-        const backgroundImage = getBackgroundImage(weatherData?.list?.[0]?.weather?.[0]?.id || 0);
-
-
-
-        if (loading) {
-            return (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#6EC1E4" />
-                </View>
-            );
+    // Function to obtain the background image of the card based on the weather conditions ID
+    const getBackgroundImage = (weatherId: number) => {
+        switch (true) {
+            case (weatherId >= 200 && weatherId < 300):
+                return require('../../assets/images/Storm.jpg');
+            case (weatherId >= 300 && weatherId < 400):
+                return require('../../assets/images/Rain.jpg');
+            case (weatherId >= 500 && weatherId < 600):
+                return require('../../assets/images/Rain.jpg');
+            case (weatherId >= 600 && weatherId < 700):
+                return require('../../assets/images/Snow.jpg');
+            case (weatherId === 800):
+                return require('../../assets/images/Sunny.jpg');
+            case (weatherId === 801):
+                return require('../../assets/images/Partly_cloudy.jpg');
+            case (weatherId >= 802 && weatherId <= 804):
+                return require('../../assets/images/Cloudy.jpg');
+            default:
+                return require('../../assets/images/default_weather.jpg');
         }
+    };
+
+
+    const backgroundImage = getBackgroundImage(weatherData?.list?.[0]?.weather?.[0]?.id || 0);
+
+
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#6EC1E4" />
+            </View>
+        );
+    }
 
 
 
-        // Function to obtain temperature color based on the value
-        const getTemperatureColor = (temp: number) => {
-            if (temp < -10) {
-                return 'fucsia'
-            } else if (temp >= -10 && temp < 0) {
-                return 'blue'
-            } else if (temp >= 0 && temp < 10) {
-                return 'lightblue'
-            } else if (temp >= 10 && temp < 20) {
-                return 'green'
-            } else if (temp >= 20 && temp < 30) {
-                return 'gold'
-            } else if (temp >= 30 && temp < 40) {
-                return 'orange'
-            } else {
-                return 'red'
-            }
-        };
+    // Function to obtain temperature color based on the value
+    const getTemperatureColor = (temp: number) => {
+        if (temp < -10) {
+            return 'fucsia'
+        } else if (temp >= -10 && temp < 0) {
+            return 'blue'
+        } else if (temp >= 0 && temp < 10) {
+            return 'lightblue'
+        } else if (temp >= 10 && temp < 20) {
+            return 'green'
+        } else if (temp >= 20 && temp < 30) {
+            return 'gold'
+        } else if (temp >= 30 && temp < 40) {
+            return 'orange'
+        } else {
+            return 'red'
+        }
+    };
 
         // How to display the weather data
         return (
@@ -408,7 +354,6 @@ const HomeScreen = ({ route, navigation }: { route: any; navigation: any }) => {
             </View>
         );
     };
-}
 
 export default HomeScreen;
 
