@@ -77,7 +77,7 @@ function RegisterScreen({ navigation }: RegisterScreenProps) {
           <Ionicons name="arrow-back" size={24} color="#6EC1E4" />
           <Text style={styles.backButtonText}>Login</Text>
         </TouchableOpacity>
-        <Image source={require('../../assets/images/logo.jpg')} style={styles.logo} />
+        <Image source={require('../../assets/images/logo.png')} style={styles.logo} />
         <Text style={styles.introText}>Enter your details to register</Text>
         <TextInput
           style={styles.input}
@@ -129,7 +129,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: 'center',
     padding: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
@@ -137,8 +136,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     position: 'absolute',
-    top: 50,
+    top: 45,
     left: 20,
+    zIndex: 1,
   },
   backButtonText: {
     color: '#6EC1E4',
@@ -147,16 +147,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   logo: {
-    width: 100,
-    height: 100,
+    width: 160,
+    height: 160,
     alignSelf: 'center',
-    marginTop: 0,
+    marginTop: 80,
   },
   introText: {
-    fontSize: 20,
+    fontSize: 16,
     textAlign: 'center',
-    marginBottom: 20,
-    marginTop: 20,
+    marginBottom: 40,
+    marginTop: 6,
     color: '#6EC1E4',
     fontWeight: 'bold',
   },
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: 'center',
     marginVertical: 5,
-    marginTop: 20,
+    marginTop: 40,
   },
   buttonDisabled: {
     backgroundColor: '#9999',  // Grigio quando il form non è valido

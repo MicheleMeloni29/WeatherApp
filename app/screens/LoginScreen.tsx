@@ -47,7 +47,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   return (
     <ImageBackground source={require('../../assets/images/clear_sky.jpg')} style={styles.background}>
       <View style={styles.container}>
-        <Image source={require('../../assets/images/logo.jpg')} style={styles.logo} />
+        <Image source={require('../../assets/images/logo.png')} style={styles.logo} />
         <Text style={styles.welcomeText}>Welcome to AppMeteo!</Text>
         <Text style={styles.introText}>Your weather app for the best weather forecast</Text>
         <View style={styles.inputContainer}>
@@ -110,22 +110,22 @@ export default WrappedLoginScreen;
 const styles = StyleSheet.create({
   background: {
     flex: 1,
-    justifyContent: 'center',
   },
   container: {
     flex: 1,
-    justifyContent: 'center',
     padding: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    paddingTop: 80,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Aggiunto paddingTop per evitare sovrapposizione con la barra di stato
   },
   logo: {
-    width: 100,
-    height: 100,
+    width: 160,
+    height: 160,
     alignSelf: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
+    resizeMode: 'contain',
   },
   inputContainer: {
-    marginTop: 20,
+    marginTop: 15,
   },
   input: {
     height: 40,
@@ -141,6 +141,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: 'center',
     marginVertical: 5,
+    marginTop: 20,
   },
   registerButton: {
     backgroundColor: '#9999',
@@ -156,15 +157,15 @@ const styles = StyleSheet.create({
   },
   welcomeText: {
     color: '#6EC1E4',
-    fontSize: 30,
+    fontSize: 26,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   introText: {
-    fontSize: 20,
+    fontSize: 18,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
     color: '#6EC1E4',
     fontWeight: 'bold',
   },
