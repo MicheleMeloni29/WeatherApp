@@ -25,6 +25,7 @@ import HomeScreen from '../screens/HomeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { LocationType } from '../screens/AddLocationScreen';
+import { useTheme } from '../../hooks/ThemeProvider';
 
 export type MainTabParamList = {
     Home: undefined;
@@ -42,13 +43,15 @@ export type RootStackParamList = {
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainTabNavigator() {
+    const { theme, isDarkMode } = useTheme();
+
     return (
         <Tab.Navigator
             initialRouteName="Home"
             screenOptions={({ route }) => ({
                 tabBarIcon: ({ focused }) => {
                     let iconName: 'home' | 'add-circle' | 'settings' | undefined;
-                    let iconColor = focused ? '#6EC1E4' : 'gray';
+                    let iconColor = focused ? theme.primary : theme.textSecondary;
 
                     switch (route.name) {
                         case 'Home':
@@ -65,6 +68,17 @@ export default function MainTabNavigator() {
                     return <Ionicons name={iconName} size={44} color={iconColor} />;
                 },
                 tabBarShowLabel: false,
+                tabBarStyle: {
+                    backgroundColor: theme.cardBackground,
+                    borderTopColor: theme.border,
+                },
+                headerStyle: {
+                    backgroundColor: theme.cardBackground,
+                },
+                headerTintColor: theme.text,
+                headerTitleStyle: {
+                    color: theme.text,
+                },
             })}
         >
             <Tab.Screen name="AddLocation" component={AddLocation} />

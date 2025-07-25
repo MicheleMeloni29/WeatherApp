@@ -2,6 +2,7 @@ import { registerRootComponent } from 'expo';
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { AuthProvider, useAuth } from './hooks/Authprovider';
+import { ThemeProvider } from './hooks/ThemeProvider';
 import AuthStackNavigator from './app/navigators/AuthStackNavigator'; // Ensure this file exists and is correctly named
 import DrawerNavigator from './app/navigators/DrawerNavigator';
 
@@ -17,9 +18,11 @@ function AppNavigator() {
 
 function App() {
     return (
-        <AuthProvider>
-            <AppNavigator />
-        </AuthProvider>
+        <ThemeProvider>
+            <AuthProvider>
+                <AppNavigator />
+            </AuthProvider>
+        </ThemeProvider>
     );
 }
 

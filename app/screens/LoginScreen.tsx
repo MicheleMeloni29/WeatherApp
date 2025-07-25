@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../constants/firebaseConfig';
+import { useTheme } from '../../hooks/ThemeProvider';
 
 
 interface LoginScreenProps {
@@ -11,6 +12,7 @@ interface LoginScreenProps {
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
+  const { theme, isDarkMode } = useTheme();
   const navigation = useNavigation<any>();
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
@@ -44,27 +46,37 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     setIsPasswordVisible(!isPasswordVisible);
   };
 
+  // Check if both username and password are filled
+  const isFormValid = userName.trim() !== '' && password.trim() !== '';
+
   return (
     <ImageBackground source={require('../../assets/images/clear_sky.jpg')} style={styles.background}>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: isDarkMode ? 'rgba(30, 30, 30, 0.9)' : 'rgba(255, 255, 255, 0.8)' }]}>
         <Image source={require('../../assets/images/logo.png')} style={styles.logo} />
-        <Text style={styles.welcomeText}>Welcome to AppMeteo!</Text>
-        <Text style={styles.introText}>Your weather app for the best weather forecast</Text>
+        <Text style={[styles.welcomeText, { color: theme.primary }]}>Welcome to AppMeteo!</Text>
+        <Text style={[styles.introText, { color: theme.primary }]}>Your weather app for the best weather forecast</Text>
         <View style={styles.inputContainer}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, {
+              borderColor: theme.primary,
+              backgroundColor: theme.inputBackground,
+              color: theme.text
+            }]}
             placeholder="Username"
-            placeholderTextColor={'#6EC1E4'}
+            placeholderTextColor={theme.textSecondary}
             value={userName}
             onChangeText={setUserName}
             keyboardType="email-address"
             autoCapitalize="none"
           />
-          <View style={styles.passwordContainer}>
+          <View style={[styles.passwordContainer, {
+            borderColor: theme.primary,
+            backgroundColor: theme.inputBackground
+          }]}>
             <TextInput
-              style={styles.inputPassword}
+              style={[styles.inputPassword, { color: theme.text }]}
               placeholder="Password"
-              placeholderTextColor={'#6EC1E4'}
+              placeholderTextColor={theme.textSecondary}
               value={password}
               secureTextEntry={!isPasswordVisible}
               onChangeText={setPassword}
@@ -73,20 +85,31 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
               <Ionicons
                 name={isPasswordVisible ? 'eye-off' : 'eye'}
                 size={24}
-                color="#6EC1E4"
+                color={theme.primary}
               />
             </TouchableOpacity>
           </View>
-          {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+          {errorMessage ? <Text style={[styles.error, { color: theme.error }]}>{errorMessage}</Text> : null}
           {loading ? (
-            <ActivityIndicator size="large" color="#6EC1E4" />
+            <ActivityIndicator size="large" color={theme.primary} />
           ) : (
             <>
-              <TouchableOpacity style={styles.button} onPress={handleLogin}>
-                <Text style={styles.buttonText}>Login</Text>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  { backgroundColor: isFormValid ? theme.primary : theme.textSecondary },
+                  !isFormValid && styles.disabledButton
+                ]}
+                onPress={handleLogin}
+                disabled={!isFormValid}
+              >
+                <Text style={[styles.buttonText, { color: theme.buttonText }, !isFormValid && styles.disabledButtonText]}>Login</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.registerButton]} onPress={() => navigation.navigate('Register')}>
-                <Text style={styles.buttonText}>Register</Text>
+              <TouchableOpacity
+                style={[styles.button, styles.registerButton, { backgroundColor: theme.primary }]}
+                onPress={() => navigation.navigate('Register')}
+              >
+                <Text style={[styles.buttonText, { color: theme.buttonText }]}>Register</Text>
               </TouchableOpacity>
             </>
           )}
@@ -172,12 +195,10 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 18,
     marginBottom: 5,
-    color: '#6EC1E4',
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderColor: '#6EC1E4',
     borderWidth: 1,
     borderRadius: 5,
     marginBottom: 12,
@@ -187,5 +208,11 @@ const styles = StyleSheet.create({
   inputPassword: {
     flex: 1,
     height: 40,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  disabledButtonText: {
+    opacity: 0.7,
   },
 });

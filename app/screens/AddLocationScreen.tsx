@@ -79,7 +79,7 @@ import { MainTabParamList } from '../navigators/MainTabNavigator';
 import { doc, setDoc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from '../../constants/firebaseConfig';
 import { getAuth } from 'firebase/auth';
-import { get } from 'lodash';
+import { useTheme } from '../../hooks/ThemeProvider';
 
 
 type AddLocationScreenNavigationProp = StackNavigationProp<MainTabParamList, 'AddLocation'>;
@@ -100,6 +100,7 @@ export type LocationType = {
 
 
 const AddLocation: React.FC<Props> = ({ navigation }) => {
+    const { theme, isDarkMode } = useTheme();
     const [query, setQuery] = useState('');
     const [filteredCities, setFilteredCities] = useState<LocationType[]>([]);
     const [loading, setLoading] = useState(false);
@@ -118,40 +119,83 @@ const AddLocation: React.FC<Props> = ({ navigation }) => {
                 const { status } = await Location.requestForegroundPermissionsAsync();
                 if (status !== 'granted') {
                     console.error('Permission to access location was denied');
+                    // Set a default region if permission is denied
+                    const defaultReg = {
+                        latitude: 37.78825,
+                        longitude: -122.4324,
+                        latitudeDelta: 0.1,
+                        longitudeDelta: 0.1,
+                    };
+                    setRegion(defaultReg);
+                    defaultRegion.current = defaultReg;
                     return;
                 }
 
-                // Try to obtain the last known location
-                const lastKnownLocation = await Location.getLastKnownPositionAsync({});
+                // Always try to get the current location first
+                try {
+                    const location = await Location.getCurrentPositionAsync({
+                        accuracy: Location.Accuracy.High,
+                    });
+                    const { latitude, longitude } = location.coords;
 
-                if (lastKnownLocation) {
-                    const { latitude, longitude } = lastKnownLocation.coords;
-
-                    // Start animation moving the map from the current location to the location selected
-                    mapRef.current?.animateToRegion({
+                    const currentRegion = {
                         latitude,
                         longitude,
                         latitudeDelta: 0.1,
                         longitudeDelta: 0.1,
-                    }, 1000);
+                    };
+
+                    // Update map with current location
+                    setRegion(currentRegion);
+                    defaultRegion.current = currentRegion;
                     currentLocation.current = { latitude, longitude };
+
+                    mapRef.current?.animateToRegion(currentRegion, 1000);
+                    return; // Exit early if we got current location successfully
+                } catch (currentLocationError) {
+                    console.log('Could not get current location, trying last known location');
                 }
 
-                // Ask for the current location
-                const location = await Location.getCurrentPositionAsync({});
-                const { latitude, longitude } = location.coords;
+                // Fallback to last known location if current location fails
+                const lastKnownLocation = await Location.getLastKnownPositionAsync({});
 
-                // Update map with current location
-                mapRef.current?.animateToRegion({
-                    latitude,
-                    longitude,
-                    latitudeDelta: 0.1,
-                    longitudeDelta: 0.1,
-                }, 1000);
+                if (lastKnownLocation) {
+                    const { latitude, longitude } = lastKnownLocation.coords;
+                    const newRegion = {
+                        latitude,
+                        longitude,
+                        latitudeDelta: 0.1,
+                        longitudeDelta: 0.1,
+                    };
 
-                currentLocation.current = { latitude, longitude };
+                    setRegion(newRegion);
+                    defaultRegion.current = newRegion;
+                    currentLocation.current = { latitude, longitude };
+
+                    mapRef.current?.animateToRegion(newRegion, 1000);
+                } else {
+                    // Final fallback to default location
+                    const defaultReg = {
+                        latitude: 37.78825,
+                        longitude: -122.4324,
+                        latitudeDelta: 0.1,
+                        longitudeDelta: 0.1,
+                    };
+                    setRegion(defaultReg);
+                    defaultRegion.current = defaultReg;
+                }
+
             } catch (error) {
                 console.error('Error getting location:', error);
+                // Set a default region if there's an error
+                const defaultReg = {
+                    latitude: 37.78825,
+                    longitude: -122.4324,
+                    latitudeDelta: 0.1,
+                    longitudeDelta: 0.1,
+                };
+                setRegion(defaultReg);
+                defaultRegion.current = defaultReg;
             }
         };
 
@@ -305,45 +349,117 @@ const AddLocation: React.FC<Props> = ({ navigation }) => {
 
 
 
-    // Function to refresh the current location
-    const handleRefresh = useCallback(async () => {
-        setQuery('');               // Cancella il contenuto della barra di ricerca
-        setFilteredCities([]);      // Pulisci la lista dei suggerimenti
+    // Handle map press to select a location
+    const handleMapPress = async (event: any) => {
+        const { latitude, longitude } = event.nativeEvent.coordinate;
 
-        if (defaultRegion.current) {
-            setLoadingCurrentPosition(true);
+        try {
+            setLoading(true);
 
-            try {
-                // Prova a ottenere la posizione corrente
-                const location = await Location.getCurrentPositionAsync({});
-                const { latitude, longitude } = location.coords;
+            // Use reverse geocoding to get the location name
+            const response = await fetch(
+                `https://api.locationiq.com/v1/reverse.php?key=pk.50885526f1e3429619457922e2499771&lat=${latitude}&lon=${longitude}&format=json`
+            );
 
-                // Aggiorna l'area della mappa con la nuova posizione
-                const newRegion = {
-                    latitude,
-                    longitude,
-                    latitudeDelta: 0.1,
-                    longitudeDelta: 0.1,
+            const data = await response.json();
+
+            if (data && data.display_name) {
+                const newLocation: LocationType = {
+                    name: data.display_name,
+                    latitude: latitude,
+                    longitude: longitude,
                 };
 
-                // Imposta la mappa sulla nuova regione con animazione
-                mapRef.current?.animateToRegion(newRegion, 1000);
+                setSelectedLocation(newLocation);
+                setQuery(data.display_name);
+                setFilteredCities([]);
 
-                // Reimposta lo stato della regione per riflettere la nuova posizione
-                setRegion(newRegion);
+                console.log('Location selected from map:', newLocation);
+            } else {
+                // If reverse geocoding fails, create a generic location name
+                const genericName = `Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+                const newLocation: LocationType = {
+                    name: genericName,
+                    latitude: latitude,
+                    longitude: longitude,
+                };
 
-            } catch (error) {
-                console.error('Error refreshing current location:', error);
-            } finally {
-                setLoadingCurrentPosition(false);
+                setSelectedLocation(newLocation);
+                setQuery(genericName);
+                setFilteredCities([]);
             }
+
+        } catch (error) {
+            console.error('Error with reverse geocoding:', error);
+
+            // Fallback: create location with coordinates
+            const fallbackName = `Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+            const fallbackLocation: LocationType = {
+                name: fallbackName,
+                latitude: latitude,
+                longitude: longitude,
+            };
+
+            setSelectedLocation(fallbackLocation);
+            setQuery(fallbackName);
+            setFilteredCities([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+    const handleRefresh = useCallback(async () => {
+        setQuery('');               // Clear the search bar content
+        setFilteredCities([]);      // Clear the suggestions list
+        setSelectedLocation(null);  // Clear selected location
+
+        setLoadingCurrentPosition(true);
+
+        try {
+            // Get permission first
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                console.error('Permission to access location was denied');
+                alert('Permission to access location was denied. Please enable location services to use this feature.');
+                setLoadingCurrentPosition(false);
+                return;
+            }
+
+            // Try to get the current location with high accuracy
+            const location = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.High,
+            });
+            const { latitude, longitude } = location.coords;
+
+            // Update the map area with the new position
+            const newRegion = {
+                latitude,
+                longitude,
+                latitudeDelta: 0.1,
+                longitudeDelta: 0.1,
+            };
+
+            // Set the map to the new region with animation
+            mapRef.current?.animateToRegion(newRegion, 1000);
+
+            // Reset the region state to reflect the new position
+            setRegion(newRegion);
+            defaultRegion.current = newRegion;
+            currentLocation.current = { latitude, longitude };
+
+        } catch (error) {
+            console.error('Error refreshing current location:', error);
+            alert('Failed to get current location. Please check your location permissions and ensure GPS is enabled.');
+        } finally {
+            setTimeout(() => {
+                setLoadingCurrentPosition(false);
+            }, 1000);
         }
     }, []);
 
 
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
             <View style={styles.searchContainer}>
                 <Autocomplete
                     containerStyle={styles.autocompleteContainer}
@@ -354,45 +470,77 @@ const AddLocation: React.FC<Props> = ({ navigation }) => {
                         fetchLocationSuggestions(text);
                     }}
                     placeholder="Search for a city or a location..."
-                    placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                    placeholderTextColor={theme.textSecondary}
                     flatListProps={{
                         keyExtractor: (item) => item.name,
-                        ListEmptyComponent: () => <Text style={styles.noResultText}>No results found</Text>,
+                        ListEmptyComponent: () => <Text style={[styles.noResultText, { color: theme.textSecondary }]}>No results found</Text>,
                         renderItem: ({ item }) => (
                             <TouchableOpacity onPress={() => handleSelectCity(item)}>
-                                <Text style={styles.itemText}>
-                                    {item.name} ({item.distance?.toFixed(2)} km)
+                                <Text style={[styles.itemText, {
+                                    color: theme.text,
+                                    borderBottomColor: theme.border,
+                                    backgroundColor: theme.cardBackground
+                                }]}>
+                                    {item.name}
                                 </Text>
                             </TouchableOpacity>
                         ),
                     }}
-                    style={styles.input}
+                    style={[styles.input, {
+                        backgroundColor: theme.inputBackground,
+                        color: theme.text
+                    }]}
                     autoCorrect={false}
                 />
-                <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh}>
-                    <Ionicons name="refresh" size={24} color="#fff" />
+                <TouchableOpacity style={[styles.refreshButton, { backgroundColor: theme.primary }]} onPress={handleRefresh} disabled={loadingCurrentPosition}>
+                    {loadingCurrentPosition ? (
+                        <ActivityIndicator size="small" color={theme.buttonText} />
+                    ) : (
+                        <Ionicons name="refresh" size={24} color={theme.buttonText} />
+                    )}
                 </TouchableOpacity>
             </View>
 
-            {loading && <ActivityIndicator size="large" color="#6EC1E4" />}
+            {loading && <ActivityIndicator size="large" color={theme.primary} />}
 
             <MapView
                 ref={mapRef}
                 style={styles.map}
                 // Set the region to the current location or the selected location
-                region={region || { latitude: 0, longitude: 0, latitudeDelta: 0.1, longitudeDelta: 0.1 }}
+                region={region || {
+                    latitude: 37.78825,
+                    longitude: -122.4324,
+                    latitudeDelta: 0.1,
+                    longitudeDelta: 0.1
+                }}
                 onRegionChangeComplete={setRegion}
+                onPress={handleMapPress}
             >
                 {selectedLocation && (
                     <Marker
                         coordinate={{ latitude: selectedLocation.latitude, longitude: selectedLocation.longitude }}
                         title={selectedLocation.name}
+                        description={`Lat: ${selectedLocation.latitude.toFixed(4)}, Lon: ${selectedLocation.longitude.toFixed(4)}`}
                     />
                 )}
             </MapView>
 
-            <TouchableOpacity style={styles.addButton} onPress={handleAddLocation}>
-                <Text style={styles.addButtonText}>Add Location</Text>
+            <TouchableOpacity
+                style={[
+                    styles.addButton,
+                    { backgroundColor: theme.primary },
+                    !selectedLocation && [styles.disabledButton, { backgroundColor: theme.textSecondary }]
+                ]}
+                onPress={handleAddLocation}
+                disabled={!selectedLocation}
+            >
+                <Text style={[
+                    styles.addButtonText,
+                    { color: theme.buttonText },
+                    !selectedLocation && [styles.disabledButtonText, { color: theme.background }]
+                ]}>
+                    Add Location
+                </Text>
             </TouchableOpacity>
         </View>
     );
@@ -405,7 +553,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        backgroundColor: '#fff',
+        // backgroundColor will be set dynamically via theme
     },
     searchContainer: {
         flexDirection: 'row',
@@ -419,7 +567,7 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
     noResultText: {
-        color: '#999',
+        // color will be set dynamically via theme
         padding: 10,
         textAlign: 'center',
     },
@@ -427,18 +575,22 @@ const styles = StyleSheet.create({
         borderWidth: 0,
         borderRadius: 5,
         padding: 10,
+        // backgroundColor and color will be set dynamically via theme
     },
     refreshButton: {
-        backgroundColor: '#6EC1E4',
+        // backgroundColor will be set dynamically via theme
         padding: 10,
         borderRadius: 10,
         justifyContent: 'center',
+        alignItems: 'center',
         marginLeft: 10,
+        width: 44,
+        height: 44,
     },
     itemText: {
         padding: 10,
         borderBottomWidth: 1,
-        borderBottomColor: '#ddd',
+        // color, borderBottomColor, backgroundColor will be set dynamically via theme
     },
     map: {
         flex: 1,
@@ -451,7 +603,7 @@ const styles = StyleSheet.create({
         borderRadius: 10,
     },
     addButton: {
-        backgroundColor: '#6EC1E4',
+        // backgroundColor will be set dynamically via theme
         borderRadius: 10,
         alignItems: 'center',
         position: 'absolute',
@@ -461,7 +613,21 @@ const styles = StyleSheet.create({
         padding: 10,
     },
     addButtonText: {
-        color: '#fff',
+        // color will be set dynamically via theme
         fontSize: 25,
+    },
+    disabledButton: {
+        // backgroundColor will be set dynamically via theme
+        opacity: 0.6,
+    },
+    disabledButtonText: {
+        // color will be set dynamically via theme
+    },
+    instructionText: {
+        fontSize: 14,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 0,
+        paddingHorizontal: 10,
     },
 });

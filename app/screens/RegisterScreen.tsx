@@ -6,6 +6,7 @@ import { RootStackParamList } from '../navigators/MainTabNavigator';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../constants/firebaseConfig';
 import { doc, setDoc } from 'firebase/firestore';
+import { useTheme } from '../../hooks/ThemeProvider';
 
 
 
@@ -13,6 +14,7 @@ type RegisterScreenProps = StackScreenProps<RootStackParamList, 'Register'>;
 
 
 function RegisterScreen({ navigation }: RegisterScreenProps) {
+  const { theme, isDarkMode } = useTheme();
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -28,7 +30,7 @@ function RegisterScreen({ navigation }: RegisterScreenProps) {
         setErrorMessage(''); // Rimuove l'errore se le password coincidono
       } else {
         setIsFormValid(false);
-        setErrorMessage('Le password non coincidono');
+        setErrorMessage('Passwords do not match'); // Set an error message if passwords do not match
       }
     } else {
       setIsFormValid(false);
@@ -57,13 +59,13 @@ function RegisterScreen({ navigation }: RegisterScreenProps) {
       console.log("User registered successfully with ID:", user.uid);
 
       // Navigazione alla schermata di login
-      Alert.alert("Registrazione completata", "Ora puoi effettuare il login.");
+      Alert.alert("Registration complete", "You can now log in!");
       navigation.navigate('Login');
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
-        setErrorMessage('Nome utente già in uso. Scegline un altro.');
+        setErrorMessage('Username already in use. Please choose another.');
       } else {
-        setErrorMessage('Errore di registrazione. Riprova.');
+        setErrorMessage('Registration error. Please try again.');
       }
       console.error('Registration error:', error);
     }
@@ -72,48 +74,60 @@ function RegisterScreen({ navigation }: RegisterScreenProps) {
 
   return (
     <ImageBackground source={require('../../assets/images/clear_sky.jpg')} style={styles.background}>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: isDarkMode ? 'rgba(30, 30, 30, 0.9)' : 'rgba(255, 255, 255, 0.8)' }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Login')}>
-          <Ionicons name="arrow-back" size={24} color="#6EC1E4" />
-          <Text style={styles.backButtonText}>Login</Text>
+          <Ionicons name="arrow-back" size={24} color={theme.primary} />
+          <Text style={[styles.backButtonText, { color: theme.primary }]}>Login</Text>
         </TouchableOpacity>
         <Image source={require('../../assets/images/logo.png')} style={styles.logo} />
-        <Text style={styles.introText}>Enter your details to register</Text>
+        <Text style={[styles.introText, { color: theme.primary }]}>Enter your details to register</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, {
+            borderColor: theme.primary,
+            backgroundColor: theme.inputBackground,
+            color: theme.text
+          }]}
           placeholder="Username"
-          placeholderTextColor="rgba(110, 193, 228, 0.5)"
+          placeholderTextColor={theme.textSecondary}
           value={userName}
           onChangeText={setUserName}
         />
         <TextInput
-          style={styles.input}
+          style={[styles.input, {
+            borderColor: theme.primary,
+            backgroundColor: theme.inputBackground,
+            color: theme.text
+          }]}
           placeholder="New Password"
-          placeholderTextColor="rgba(110, 193, 228, 0.5)"
+          placeholderTextColor={theme.textSecondary}
           value={password}
           secureTextEntry
           onChangeText={setPassword}
         />
         <TextInput
-          style={styles.input}
+          style={[styles.input, {
+            borderColor: theme.primary,
+            backgroundColor: theme.inputBackground,
+            color: theme.text
+          }]}
           placeholder="Confirm Password"
-          placeholderTextColor="rgba(110, 193, 228, 0.5)"
+          placeholderTextColor={theme.textSecondary}
           value={confirmPassword}
           secureTextEntry
           onChangeText={setConfirmPassword}
         />
         {errorMessage ? (
-          <Text style={styles.errorText}>{errorMessage}</Text>
+          <Text style={[styles.errorText, { color: theme.error }]}>{errorMessage}</Text>
         ) : null}
         <TouchableOpacity
           style={[
             styles.button,
-            isFormValid ? styles.buttonEnabled : styles.buttonDisabled // Modifica lo stile in base alla validità del form
+            isFormValid ? [styles.buttonEnabled, { backgroundColor: theme.primary }] : [styles.buttonDisabled, { backgroundColor: theme.textSecondary }] // Modifica lo stile in base alla validità del form
           ]}
           onPress={handleRegister}
           disabled={!isFormValid}  // Il pulsante è disabilitato se il form non è valido
         >
-          <Text style={styles.buttonText}>Register</Text>
+          <Text style={[styles.buttonText, { color: theme.buttonText }]}>Register</Text>
         </TouchableOpacity>
       </View>
     </ImageBackground>
@@ -130,7 +144,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
   backButton: {
     flexDirection: 'row',
@@ -141,7 +154,6 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   backButtonText: {
-    color: '#6EC1E4',
     marginLeft: 5,
     fontSize: 16,
     fontWeight: 'bold',
@@ -157,18 +169,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 40,
     marginTop: 6,
-    color: '#6EC1E4',
     fontWeight: 'bold',
   },
   input: {
     width: '100%',
     height: 40,
-    borderColor: '#6EC1E4',
     borderWidth: 1,
     marginBottom: 20,
     paddingHorizontal: 10,
     borderRadius: 5,
-    color: '#333',
   },
   button: {
     padding: 10,
@@ -178,18 +187,16 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   buttonDisabled: {
-    backgroundColor: '#9999',  // Grigio quando il form non è valido
+    // Styles will be applied inline now
   },
   buttonEnabled: {
-    backgroundColor: '#6EC1E4',  // Verde quando il form è valido
+    // Styles will be applied inline now
   },
   buttonText: {
-    color: '#fff',
     fontSize: 20,
     fontWeight: 'bold',
   },
   errorText: {
-    color: 'red',
     marginBottom: 10,
     textAlign: 'center',
   },
